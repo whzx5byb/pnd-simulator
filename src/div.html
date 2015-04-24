@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="zh-cn">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>Document</title>
+  <script src="fabric.min.js"></script>
+</head>
+
+<body>
+  <style>
+  html,body {margin:0;padding: 0}
+  #test {
+    width: 360px;
+    height: 300px;
+    background: url('img/bg.png');
+    background-size: cover;
+    position: relative;
+  }
+  .testUnit {
+    display: block;
+    width: 60px;
+    height:60px;
+    position: absolute;
+  }
+  </style>
+  <div id="test">
+    
+  </div>
+  <div id="log"></div>
+<script src="jquery-1.11.2.min.js"></script>
+<script>
+(function() {
+  var boardWidth = 360,
+      boardHeight = 300,
+      boardSizeX = 6,
+      boardSizeY = 5
+      cellWidth = 60,
+      cellHeight = 60,
+      orbWidth = 58,
+      orbHeight = 58,
+      selectedOffsetX = 32,
+      selectedOffsetY = 32,
+
+    orbs = [
+      ['fire', 1],
+      ['water', 1],
+      ['wood', 1],
+      ['light', 1],
+      ['dark', 1],
+      ['heart', 1]
+    ],
+    skyfall = 1;
+
+
+
+
+  //test
+  var testArr = [
+    [2, 5, 3, 5, 5, 5],
+    [3, 4, 3, 1, 1, 2],
+    [2, 4, 3, 0, 1, 5],
+    [4, 4, 3, 1, 1, 2],
+    [0, 1, 1, 1, 3, 5]
+  ];
+  var orbsName = ["fire", "water", "wood", "light", "dark", "heart"];
+
+
+
+  var PAD = function(objId) {
+    //this.canvas = null;
+
+    this.canvas = $('#test');
+    this.orbs = [];
+
+    this.init(objId);
+    this.bindMouseEvent();
+    
+    
+    
+
+  }
+  PAD.prototype.init = function(objId) {
+    var _this = this;
+    
+    // 初始化珠子盘面画布
+    
+    
+    
+
+    for (var i = 0; i < testArr.length; i++) {
+      for (var j = 0; j < testArr[i].length; j++) {
+        (function(ii, jj) {
+          // var rect = new fabric.Circle({
+          //   radius: 25,
+          //   fill: color[testArr[ii][jj]],
+          //   left: jj * 50,
+          //   top: ii * 50
+          // });
+          
+          
+          var oImg = $('<img class="testUnit" src="img/' + orbsName[testArr[ii][jj]] + '.png"></img>');
+          oImg.css({transform: 'translate3d(' + jj * cellWidth + 'px,' + ii * cellHeight + 'px,0)'})
+
+          _this.canvas.append(oImg);
+
+          _this.orbs.push(new Orb(oImg.get(0),{x:jj, y:ii, type:testArr[ii][jj]}));
+        })(i, j);
+      };
+    };
+  }
+
+  
+
+
+  PAD.prototype.bindMouseEvent = function() {
+    var _this = this;
+
+
+    $(this.canvas).on('touchstart mousedown', function(ev) {
+      
+      // 检测点击位是否有珠子
+      var cx = ev.clientX || ev.originalEvent.touches[0].pageX - window.scrollX,
+          cy = ev.clientY || ev.originalEvent.touches[0].pageY - window.scrollY,
+          x = Math.floor(cx / cellWidth),
+          y = Math.floor(cy / cellHeight),
+          oOrb = _this.getOrb(x,y);
+
+
+      if (oOrb) {
+        _this.startDragging(oOrb,ev);
+      }
+      
+    }).on('touchend mouseup', function(ev) {
+      // TODO:多点触摸时移开一个手指也会触发touchend，需要检测touches列表长度
+      $('#log').html('touchend');
+      _this.stopDragging();
+    }).on('touchmove mousemove', function(ev) {
+      ev.preventDefault();
+      if (_this.draggingFlag) {
+        _this.dragOrb(ev);
+      }
+    })
+    
+
+    function isOrb(obj) {
+      return true;
+    }
+  }
+
+  PAD.prototype.startDragging = function(orb, e) {
+    $('#log').html('startDragging');
+    var _this = this,
+        orbObj = orb.obj;
+    this.draggingFlag = 1;
+    
+    var type = orbsName[orb.type];
+    var newOrb = $(orb.obj).clone().css({transition: '0s'}).appendTo(_this.canvas);
+    
+    
+
+    // 将原珠透明处理
+    $(orbObj).css({opacity: 0.6});
+
+    this.originOrb = orb;
+    this.movingOrb = newOrb;
+    
+    
+  }
+  PAD.prototype.dragOrb = function(ev) {
+    var x = ev.clientX || ev.originalEvent.touches[0].pageX - window.scrollX,
+        y = ev.clientY || ev.originalEvent.touches[0].pageY - window.scrollY;
+    console.log('moving:'+x+'|'+y)
+    //$('#log').html('moving:'+x+'|'+y)
+
+    this.movingOrb.css({transform: 'translate3d('+(x - selectedOffsetX)+'px, '+(y - selectedOffsetY)+'px, 0)'});
+
+    this.checkMouse(x, y)
+
+  }
+  PAD.prototype.checkMouse = function(x, y) {
+    var boardOrbX = Math.floor(x / orbWidth),
+        boardOrbY = Math.floor(y / orbHeight);
+
+    if ((boardOrbX !== this.originOrb.x) || (boardOrbY !== this.originOrb.y)) {
+      if (this.getOrb(boardOrbX, boardOrbY)) {
+        this.exchangeOrb(this.originOrb, this.getOrb(boardOrbX, boardOrbY));
+      }
+      
+    }
+    
+  }
+  PAD.prototype.stopDragging = function(obj,e) {
+    if (this.draggingFlag) {
+      $('#log').html('stopDragging');
+
+      $(this.originOrb.obj).css('opacity', 1);
+      this.movingOrb.remove();
+      this.draggingFlag = 0;
+    }
+  }
+  PAD.prototype.exchangeOrb = function(orb1, orb2) {
+    var o1 = orb1.obj,
+        o2 = orb2.obj, 
+        x1 = orb1.x,
+        y1 = orb1.y,
+        x2 = orb2.x,
+        y2 = orb2.y;
+
+    
+
+    /*//
+    o1.animate('left',o2.left,{duration:100});
+    o1.animate('top',o2.top,{duration:100});
+    o2.animate('left',l1,{duration:100});
+    o2.animate('top', t1,{duration:100})
+    /*/
+
+    $(o1).css({transform: 'translate3d(' + x2*cellWidth + 'px,' + y2*cellHeight + 'px,0)', transition: '0.05s'})
+    $(o2).css({transform: 'translate3d(' + x1*cellWidth + 'px,' + y1*cellHeight + 'px,0)', transition: '0.05s'})
+    //*/
+    
+    
+    
+    orb1.x = x2;
+    orb1.y = y2;
+    orb2.x = x1;
+    orb2.y = y1;
+  }
+  PAD.prototype.getOrb = function(x, y) {
+    for (s in this.orbs) {
+      if (this.orbs[s].x == x && this.orbs[s].y == y) {
+        return this.orbs[s]; 
+      }
+    }
+    return false;
+  }
+  PAD.prototype.getCoordinate = function(obj) {
+    var x = obj.css.left / orbWidth,
+        y = obj.css.top / orbHeight;
+
+    // TODO: 检查数据有效性
+
+    return [x,y];
+  }
+
+  var Orb = function(obj, param) {
+    this.x = param.x;
+    this.y = param.y;
+    this.type = param.type;
+    this.obj = obj;
+    this.isSelected;
+
+    
+  }
+  
+
+  window.PAD = PAD;
+})();
+
+
+var s = new PAD('test');
+</script>
+</body>
+
+</html>

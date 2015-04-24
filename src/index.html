@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-cn">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="format-detection" content="telephone=no">
+  <title>Document</title>
+</head>
+<body>
+  <style>
+  canvas {
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        -khtml-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+        outline: none;
+        -webkit-tap-highlight-color: rgba(0,0,0,0);
+    }   
+  #log {position: absolute; top: 300px;}
+  #browser {position: absolute; top: 500px; display: none;}
+  #hidden{display: none;}
+  #board_test, #mouse_test, #combo_test{width: 420px; height: 350px; position: absolute; left:0px; top:0px;}
+  </style>
+  <div id="test">
+    <!-- <canvas id="scene_test"></canvas> -->
+    <!-- <canvas id="team_test"></canvas> -->
+    <canvas id="board_test"></canvas>
+    <canvas id="mouse_test"></canvas>
+    <!-- <canvas id="combo_test"></canvas> -->
+
+  </div>
+  <div id="log">1</div>
+  <div id="browser"></div>
+  <div id="hidden">
+    <img id="fireImg" src="img/fire.png" alt="">
+    <img id="waterImg" src="img/water.png" alt="">
+    <img id="woodImg" src="img/wood.png" alt="">
+    <img id="lightImg" src="img/light.png" alt="">
+    <img id="darkImg" src="img/dark.png" alt="">
+    <img id="heartImg" src="img/heart.png" alt="">
+  </div>
+
+  <script src="js/core.js"></script>
+  <script src="jquery-1.11.2.min.js"></script>
+  <script src="fabric.min.js"></script>
+  <!-- // <script src="http://192.168.1.101:8080/target/target-script-min.js#anonymous"></script> -->
+  <script>
+  var s = new PAD('test');
+  
+  </script>
+</body>
+</html>
