@@ -59,3 +59,16 @@ var Pnd = (function(pnd) {
 })(Pnd || {});
 
 
+define(['pnd.model'], function(model){
+  return {
+    init: function() {
+
+    },
+    setTest: function() {
+
+    },
+    run: function() {
+      
+    }
+  }
+})

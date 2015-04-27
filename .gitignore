@@ -1,0 +1,7 @@
+# 
+.sublime-gulp.cache
+*.doc
+*.docx
+*.zip
+node_modules/
+.sublime-gulp.cache
