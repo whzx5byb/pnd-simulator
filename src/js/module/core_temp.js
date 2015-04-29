@@ -107,8 +107,30 @@
   PAD.prototype.bindMouseEvent = function() {
     var _this = this;
 
+    this.mouseCanvas.lowerCanvasEl.addEventListener('touchstart', function(ev) {
+      ev.preventDefault();
+      var cx = ev.touches[0].pageX - window.scrollX,
+          cy = ev.touches[0].pageY - window.scrollY,
+          x = Math.floor(cx / cellWidth),
+          y = Math.floor(cy / cellHeight),
+          oOrb = _this.getOrb(x,y);
 
-    $(this.mouseCanvas.lowerCanvasEl).on('touchstart mousedown', function(ev) {
+      if (oOrb) {
+        _this.startDragging(oOrb,ev);
+      }
+    });
+    this.mouseCanvas.lowerCanvasEl.addEventListener('touchend', function(ev) {
+      ev.preventDefault();
+      _this.stopDragging();
+    });
+    this.mouseCanvas.lowerCanvasEl.addEventListener('touchmove', function(ev) {
+      ev.preventDefault();
+      if (_this.draggingFlag) {
+        _this.dragOrb(ev);
+      }
+    });
+
+    /*$(this.mouseCanvas.lowerCanvasEl).on('touchstart mousedown', function(ev) {
       
       // 检测点击位是否有珠子
       var cx = ev.clientX || ev.originalEvent.touches[0].pageX - window.scrollX,
@@ -130,7 +152,7 @@
       if (_this.draggingFlag) {
         _this.dragOrb(ev);
       }
-    })
+    })*/
     
 
     function isOrb(obj) {
@@ -179,8 +201,8 @@
     
   }
   PAD.prototype.dragOrb = function(ev) {
-    var x = ev.clientX || ev.originalEvent.touches[0].pageX - window.scrollX,
-        y = ev.clientY || ev.originalEvent.touches[0].pageY - window.scrollY;
+    var x = ev.touches[0].pageX - window.scrollX,
+        y = ev.touches[0].pageY - window.scrollY;
     console.log('moving:'+x+'|'+y)
     //$('#log').html('moving:'+x+'|'+y)
     this.movingOrb.left = x - selectedOffsetX;
@@ -202,7 +224,7 @@
   }
   PAD.prototype.stopDragging = function(obj,e) {
     if (this.draggingFlag) {
-      $('#log').html('stopDragging');
+      
 
       this.originOrb.obj.opacity = 1;
       this.movingOrb.remove();

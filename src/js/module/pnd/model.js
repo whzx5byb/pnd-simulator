@@ -5,7 +5,7 @@ define(function(require, exports, module) {
     this.amount = this.sizeX * this.sizeY;
     this.typeNum = opt.typeNum;
     this.gravity = opt.gravity;
-    this.hasSkyfall = 0;
+    this.hasSkyfall = 1;
     this.skyfallBases = opt.skyfallBases;
     this.skyfallWeights = opt.skyfallWeights;
 
@@ -53,15 +53,20 @@ define(function(require, exports, module) {
    * 状态的改变包括两个过程: 按规则消除珠子, 将剩余的珠子(和天降珠子)下落
    * @return {[type]} [description]
    */
-  Model.prototype.toNextState = function() {
+  Model.prototype.toNextState = function(n) {
     var clearedOrbs = this.clearOrbs(),
         movedOrbs = this.dropOrbs(),
-        func = this.toNextState.bind(this);
-    if (clearedOrbs.length === 0 && movedOrbs.length === 0) {
-      this.observer.trigger('changeOver', obj);
+        func = this.toNextState.bind(this),
+        n = n || 0;
+    console.log(clearedOrbs, 'clearedOrbs', movedOrbs, 'movedOrbs')
+    //TODO:clearedOrbs 需要区分[]和[[]]
+    if ((clearedOrbs.length === 0 || clearedOrbs[0].length ===0) && movedOrbs['start'].length === 0) {
+      this.observer.trigger('changeOver');
     } else {
-      this.observer.trigger('statChange', obj);
-      setTimeout(func, 0);
+      n += 1;
+      this.observer.trigger('statChange', clearedOrbs, movedOrbs);
+
+      setTimeout(function(){func(n)}, 0);
     }
     
     
@@ -77,11 +82,12 @@ define(function(require, exports, module) {
     clearedArr.forEach(function(item) {
       var temp = [];
       item.forEach(function(item2) {
+
         temp.push(this.dataArr[item2]);
         this.dataArr[item2] = [item2, -1, 0];
-      });
+      }, this);
       clearedOrbs.push(temp);
-    });
+    }, this);
 
     // 通知事件发生
     this.observer.trigger('orbsClear', clearedOrbs);
@@ -90,13 +96,18 @@ define(function(require, exports, module) {
   Model.prototype.dropOrbs = function() {
     var figureModel = require('pnd.figureModel'),
         data = this.getSimpleData(),
-        emptyArr = [];
+        emptyArr = [],
+        movedOrbs = {
+          start: [],
+          end: [],
+          skyfall: []
+        };
 
     // 获得版面上的空位, 若空位为0则返回
     data.forEach(function(item, index) {
       if (item == -1) emptyArr.push(index);
     });
-    if (emptyArr.length === 0) {return [];}
+    if (emptyArr.length === 0) {return movedOrbs;}
     // 获得空位的补集的掉落
     var originStartArr = figureModel.getComplementOf(emptyArr),
         originEndArr = figureModel.getDropOf(originStartArr),
@@ -104,7 +115,6 @@ define(function(require, exports, module) {
         skyfallStartArr = [],
         skyfallEndArr = [],
         skyfallArr = [],
-        movedOrbs,
         newDataArr = this.dataArr.concat();
     // 消去重复珠后即为原来面板上需要移动的珠子始终位置
     originStartArr = temp[0];
@@ -122,16 +132,18 @@ define(function(require, exports, module) {
     // 获得最终变动了的珠子始终位置
     movedStartArr = originStartArr.concat(skyfallStartArr);
     movedEndArr = originEndArr.concat(skyfallEndArr);
+    movedOrbs.start = 
     movedOrbs = {
       start: movedStartArr,
       end: movedEndArr,
-      skyfall: skyfallArr;
+      skyfall: skyfallArr,
+      skyfallStart: skyfallStartArr
     };
 
     // 更新本地数据
     
     originEndArr.forEach(function(item, index) {
-      newDataArr[item] = newData[originStartArr[index]];
+      newDataArr[item] = newDataArr[originStartArr[index]];
     })
     skyfallEndArr.forEach(function(item, index) {
       newDataArr[item] = skyfallArr[index];
@@ -279,6 +291,7 @@ define(function(require, exports, module) {
    */
   Model.prototype._initSkyfallArr = function() {
     this.skyfallRates = this.getSkyfallRates(this.skyfallBases, this.skyfallWeights);
+
   }
 
   /**
@@ -319,7 +332,7 @@ define(function(require, exports, module) {
       sfBases[i] = (sfBases[i] > 0) ? 1 : 0;
       // 统计珠子类别数量和额外技能概率之和
       orbTypes += sfBases[i];
-      sum += sfWeights;
+      sum += sfWeights[i];
     }
     for (i = 0; i < len; i++) {
       if (i == len - 1) {
@@ -349,7 +362,7 @@ define(function(require, exports, module) {
       rnd = Math.random();
       for (var j = 0; j < len; j++) {
         // 用随机数与天降数组的第二项轮流比较, 若正好则落在此区间内则生成此类珠子
-        if (random < arr[j]) {
+        if (rnd < arr[j]) {
           ret.push([0, j, 0]);
           //TODO: 需要处理天降加珠
           break;
@@ -359,7 +372,7 @@ define(function(require, exports, module) {
     return ret;
   }
 
-  module.exports = new Model();
+  module.exports = Model;
 });
 
 /**

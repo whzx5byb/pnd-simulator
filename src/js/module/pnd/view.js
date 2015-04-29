@@ -1,5 +1,4 @@
-var Pnd = (function(pnd) {
-
+define(function(require, exports, module){
   var View = function(opt) {
     this.transparentImg = opt.transparentImg;
     this.orbSrcPrefix = opt.orbSrcPrefix;
@@ -19,14 +18,21 @@ var Pnd = (function(pnd) {
     this.orbMargin = this.cellWidth - this.orbWidth;
     this.animFlag = opt.animFlag;       // 动画效果开关
     this.comboInterval = opt.comboInterval; // combo计算间隔(ms)
+    this.transition = opt.transition; // 珠子下落速度(ms)
     this.canvasId = opt.canvasId;
 
-    this.rendering = 1;  //0: 不支持css3的浏览器; 1: css3动画; 2: canvas绘图库
+
+    this.renderOpt = 'css3';  //0: 不支持css3的浏览器; 1: css3动画; 2: canvas绘图库
+    this.renderer = {};
 
     this.canvasObj = {};
     this.boardObj = {};
     this.orbContainers = [];
     this.orbs = [];
+    this.skyfallOrbs = [];
+
+    this.tasks = [];
+    this.isBusy = 0;
     
     this.data = Array(this.boardSizeX * this.boardSizeY);
     
@@ -38,18 +44,20 @@ var Pnd = (function(pnd) {
    * @return {[type]}
    */
   View.prototype.init = function() {
-    this._renderContainer();
+    // 选择渲染方式
+    var renderer = this.renderer;
+    switch(this.renderOpt) {
+      // 初始化渲染器, 重载view的渲染相关方法
+      case 'css3':
+        this.renderer = require('pnd.view.css3Renderer');
+        this.renderer.initRenderer(this);
+    }
+    this.r_initCanvas();
+    this.r_initOrbContainer();
+
     //this._bindUserEvent();
   }
-  /**
-   * 根据浏览器版本自动设置渲染方式
-   */
-  View.prototype.autoSetRendering = function() {
-    this.setRendering(1);
-  }
-  View.prototype.setRendering = function(para) {
-    this.rendering = para;
-  }
+
   /**
    * 绑定用户事件, 在准备接受用户输入时调用
    * @return {[type]}
@@ -100,13 +108,27 @@ var Pnd = (function(pnd) {
       this.orbs[i].src = this.transparentImg;
     }
   }
-  View.prototype.handle = function(opt) {
-    this.eliminate(opt.matchedOrbs, function(){
-      this._moveOrbsTo(opt.movedOrbs)
+
+  View.prototype.handle = function() {
+    if (this.tasks.length == 0 || this.isBusy == 1) return;
+
+    var obj = this.tasks[0];
+    // TODO: 用promise模式重写
+    this._clearOrbs(obj.clearedOrbs, function(){
+      this._moveOrbsTo(obj.movedOrbs);
     });
   }
-  
-  View.prototype.eliminate = function(matchedOrbs, callback) {
+  View.prototype.addHandleTask = function(obj) {
+    this.tasks.push(obj);
+
+    if (this.isBusy == 0) {
+      this.handle();
+      this.isBusy = 1;
+      
+    }
+  }
+  //
+  View.prototype._clearOrbs = function(matchedOrbs, callback) {
     var arr = [],
         interval = this.comboInterval,
         _this = this,
@@ -117,22 +139,19 @@ var Pnd = (function(pnd) {
       arr = matchedOrbs[0];
       remain = matchedOrbs.slice(1);
 
-      this._eliminateSingle(arr, function(){self.call(_this, remain, callback)});
+      this._clearOrbsSingle(arr, function(){self.call(_this, remain, callback)});
     } else {
       callback.call(this);
     }
   }
   // 消除单串珠子
-  View.prototype._eliminateSingle = function(arr, callback) {
+  View.prototype._clearOrbsSingle = function(arr, callback) {
     var interval = this.comboInterval,
         _this = this;
 
     // 消除珠子
-    if (arr == undefined) {callback();return;}
-    for (var i = 0; i < arr.length; i ++ ) {
-      delete(this.data[i]);
-      this.orbs[arr[i]].style.opacity = 0;
-    }
+    this.r_clearOrbs(arr);
+    
     // 显示combo数
 
 
@@ -146,103 +165,57 @@ var Pnd = (function(pnd) {
     }
   }
 
-  // 掉落珠子
-  View.prototype.drop = function() {
-    this._moveOrbsTo([0,1,2,3,4,5],[12,13,14,15,16,17])
-  }
 
   // 
-  View.prototype._moveOrbsTo = function(arr) {
+  View.prototype._moveOrbsTo = function(movedOrbs) {
+
     var x, y,
         cellW = this.cellWidth,
-        cellH = this.cellHeight;
-    //alert(m + '|' + n)
-    
-    for (var i in arr) {
-      x = arr[i] % this.boardSizeX;
-      y = Math.floor(arr[i] / this.boardSizeX),
-      // 改变珠子容器坐标
-      this.data[arr[i]] = this.data[i];
-      delete(this.data[i]);
-      this.orbContainers[i].style.webkitTransform = 'translate3d(' + x*cellW + 'px,' + y*cellH + 'px,0)';
-    }
-
-  }
-  View.prototype._renderContainer = function() {
-    var r = this.rendering;
-    switch (r) {
-      case 0: 
-        this._renderContainerByDom(); 
-        break;
-      case 1: 
-        this._renderContainerByCss3(); 
-        break;
-      case 2: 
-        this._renderContainerByCanvas(); 
-        break;
-    }
-  }
-  View.prototype._renderContainerByCss3 = function() {
-    var canvas = document.getElementById(this.canvasId),
-        sizeX = this.boardSizeX,
-        sizeY = this.boardSizeY,
-        cellW = this.cellWidth,
         cellH = this.cellHeight,
-        orbW = this.orbWidth,
-        orbH = this.orbHeight;
-    this.canvasObj = canvas;
-    // 创建场景容器
-    var sceneObj = document.createElement('div');
-    sceneObj.style.cssText =  'width:' + this.boardWidth + 'px; ' + 
-                              'height:' + (this.canvasHeight - this.boardHeight) + 'px;' +
-                              'background: #eee';
-    canvas.appendChild(sceneObj);
-    // 创建版面容器
-    var boardObj = document.createElement('div');
-    boardObj.style.cssText =  'width:' + this.boardWidth + 'px; ' + 
-                              'height:' + this.boardHeight + 'px; ' +
-                              'background-image:url("' + this.bgSrc + '"); ' + 
-                              'background-size: cover';
-    canvas.appendChild(boardObj);
-    // 创建格子容器
-    var temp = document.createDocumentFragment();
-    for (var i = 0; i < sizeY; i ++ ) {
-      for (var j = 0; j < sizeX; j ++ ) {
-        // 创建单个的珠子容器
-        var orbContainer = document.createElement('div');
-        orbContainer.id = 'orb_' + i + '_' + j;
-        orbContainer.style.cssText =  'position: absolute; -webkit-transition: ease-in 0.25s;' +
-                                      'width:' +  cellW + 'px;' +
-                                      'height:' + cellH + 'px;' +
-                                      '-webkit-transform: translate3d(' + j*cellW + 'px, ' + i*cellH + 'px, 0)';
-        this.orbContainers.push(orbContainer);
+        start = movedOrbs.start || [],
+        end = movedOrbs.end || [],
+        skyfall = movedOrbs.skyfall || [],
+        skyfallStart = movedOrbs.skyfallStart || [];
 
-        // 创建单个珠子
-        var orb = document.createElement('img');
-        orb.src = this.transparentImg;
-        orb.width = orbW;
-        orb.height = orbH;
-        orb.style.cssText = '-webkit-transition:' + this.comboInterval / 1000 + 's';
-        this.orbs.push(orb);
-        orbContainer.appendChild(orb);
-
-        temp.appendChild(orbContainer);
-      }
+    var pre = this.orbSrcPrefix,
+        suf = this.orbSrcSuffix,
+        names = this.orbNames;
+    // 如果有天降, 先绘出天降珠子
+    if (skyfallStart.length > 0) {
+      skyfallStart.forEach(function(item, index) {
+        this.skyfallOrbs[item+30].src = pre + names[skyfall[index][1]] + suf;
+      }, this);
     }
-    boardObj.appendChild(temp);
 
-    this.boardObj = boardObj;
+    // 将珠子下落
+    // TODO: 初始化的动画效果如何处理?
+    setTimeout(function(){
+      start.forEach(function(item, index) {
+        var x = end[index] % this.boardSizeX,
+            y = Math.floor((end[index] + 30) / this.boardSizeX);
+        this.orbContainers[item+30].style.webkitTransform = 'translate3d(' + x*cellW + 'px,' + y*cellH + 'px,0)';
+      }, this)
+    }.bind(this), 0);
+    
+    // TODO: 重新初始化天降空珠版面, 并重排珠子的引用
+
+    // TODO: 传递callback
+    setTimeout(function(){
+      this.tasks.shift(0);
+      this.isBusy = 0;
+      this.handle();
+    }.bind(this), this.transition)
+    // for (var i in arr) {
+    //   x = arr[i] % this.boardSizeX;
+    //   y = Math.floor(arr[i] / this.boardSizeX),
+    //   // 改变珠子容器坐标
+    //   this.orbContainers[i].style.webkitTransform = 'translate3d(' + x*cellW + 'px,' + y*cellH + 'px,0)';
+    // }
 
   }
+  
+  
 
-
-
-  pnd.View = View;
-  return pnd;
-})(Pnd || {})
-
-
-
-define(function(){
-
+  module.exports = View;
 });
+  

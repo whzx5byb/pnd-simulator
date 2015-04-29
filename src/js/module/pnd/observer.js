@@ -1,13 +1,13 @@
 define(function(require, exports, module) {
-  var list = {};
+  var eventsList = {};
   var events = {
     //订阅
     on: function(type, handler) {
       if (typeof handler != 'function') {
         throw new Error('invalid handler')
       }
-      list[type] = list[type] || [];
-      list[type].push(handler);
+      eventsList[type] = eventsList[type] || [];
+      eventsList[type].push(handler);
       return this;
     },
     //退订
@@ -27,8 +27,8 @@ define(function(require, exports, module) {
     },
     //发布
     trigger: function(type) {
-      var list = list[type] || [];
-      var args = list.slice.call(arguments, 1);
+      var list = eventsList[type] || [];
+      var args = [].slice.call(arguments, 1);
       for (var i = 0, len = list.length; i < len; i++) {
         list[i].apply(null, args) // 挨个触发事件，转发参数
       }

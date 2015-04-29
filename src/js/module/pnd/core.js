@@ -1,29 +1,31 @@
-'use strict';
+define(function(require, exports, module) {
+  'use strict';
+  var View = require('pnd.view'),
+      Model = require('pnd.model'),
+      Presenter = require('pnd.presenter'),
+      option = require('pnd.option')
 
 
-var view = require('pnd.view'),
-  model = require('pnd.model'),
-  opt = require('pnd.option');
+  module.exports = {
+    init: function(opt) {
+      var opt = opt || option,
+          view = new View(opt),
+        model = new Model(opt),
+        presenter;
+      opt.view = view;
+      opt.model = model;
 
-module.exports = {
-  init: function(opt) {
-    var opt = opt || option,
-      view = new this.View(opt),
-      model = new this.Model(opt),
-      presenter;
-    opt.view = view;
-    opt.model = model;
+      presenter = new Presenter(opt);
+      return presenter;
+    },
+    initTester: function(opt) {
+      var opt = opt || option,
+        model = new Model(opt),
+        tester;
+      opt.model = model;
 
-    presenter = new this.Presenter(opt);
-    return presenter;
-  },
-  initTester: function(opt) {
-    var opt = opt || option,
-      model = new this.Model(opt),
-      tester;
-    opt.model = model;
-
-    tester = new this.Tester(opt);
-    return tester;
-  }
-};
+      tester = new Tester(opt);
+      return tester;
+    }
+  };
+});

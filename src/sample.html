@@ -24,8 +24,30 @@
   <div id="pndCanvas">
 
   </div>
-  <button id="btn1">init</button>
-  <script src="js/main.js"></script>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id="btn1">init</button>
+  <script src="js/sea.js"></script>
+  <script>
+  seajs.config({
+    base: './js/',
+    paths: {
+      'pnd': 'module/pnd'
+    },
+    alias: {
+      'main': 'main.js',
+      'q': 'lib/q.js',
+      'pnd.core': 'pnd/core.js',
+      'pnd.view': 'pnd/view.js',
+      'pnd.view.css3Renderer': 'pnd/view.css3Renderer.js',
+      'pnd.presenter': 'pnd/presenter.js',
+      'pnd.model': 'pnd/model.js',
+      'pnd.matchModel': 'pnd/matchModel.js',
+      'pnd.figureModel': 'pnd/figureModel.js',
+      'pnd.option': 'pnd/option.js',
+      'pnd.observer': 'pnd/observer.js',
+    }
+  });
+  seajs.use('main');
+  </script>
 </body>
 
 </html>

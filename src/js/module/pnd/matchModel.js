@@ -25,6 +25,8 @@ define(function(require, exports, module){
 
     // 遍历版面每一个珠子
     for (var i = 0, len = data.length; i < len; i++) {
+      // 如果该珠为空则跳过
+      if (data[i] == -1) {continue;}
       if (colorArr[i] < 0) {
         // 若未被上色, 则从此珠开始上色
         repeatedColorArr[color] = [i];
@@ -90,6 +92,8 @@ define(function(require, exports, module){
       return item.filter(function(ii){
         return temp.indexOf(ii) > -1;
       });
+    }).filter(function(item) {
+      return item.length > 0;
     });
     return d;
   }

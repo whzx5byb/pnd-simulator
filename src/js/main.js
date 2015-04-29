@@ -1,7 +1,13 @@
 'use strict';
-(function(){
-  var pnd = require('./module/core.js');
+define(function(require, exports, module){
+  var pnd = require('pnd.core');
+  var s = pnd.init();
+
   document.getElementById('btn1').addEventListener('click', function(){
-    pnd.init();
-  })
-})();
+    
+    s.begin();
+  });
+
+  module.exports = {};
+});
+  
