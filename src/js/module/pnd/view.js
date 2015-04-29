@@ -1,4 +1,5 @@
 define(function(require, exports, module){
+  var Q = require('q');
   var View = function(opt) {
     this.transparentImg = opt.transparentImg;
     this.orbSrcPrefix = opt.orbSrcPrefix;
@@ -50,10 +51,18 @@ define(function(require, exports, module){
       // 初始化渲染器, 重载view的渲染相关方法
       case 'css3':
         this.renderer = require('pnd.view.css3Renderer');
-        this.renderer.initRenderer(this);
     }
-    this.r_initCanvas();
-    this.r_initOrbContainer();
+    this.renderer.initRenderer(this);
+
+    Q.fcall(function(){
+      return this.r_initCanvas();
+    }.bind(this)).then(function(){
+      return this.r_initOrbContainer();
+    }.bind(this), function(err){
+      console.log(err);
+    })
+    
+    
 
     //this._bindUserEvent();
   }
@@ -110,13 +119,28 @@ define(function(require, exports, module){
   }
 
   View.prototype.handle = function() {
-    if (this.tasks.length == 0 || this.isBusy == 1) return;
+    
+    var task = this.tasks[0],
+        _this = this;
+    var s = Q.fcall(function() {
+      return this._clearOrbs(task.clearedOrbs);
+    }.bind(this)).then(function() {
+      return this._moveOrbsTo(task.movedOrbs);
+    }.bind(this)
+    ).then(function() {
+      this.tasks.shift(0);
 
-    var obj = this.tasks[0];
-    // TODO: 用promise模式重写
-    this._clearOrbs(obj.clearedOrbs, function(){
-      this._moveOrbsTo(obj.movedOrbs);
+      if (this.tasks.length == 0) {
+        this.isBusy = 0;
+        return ;
+      } else {
+        return this.handle();
+      }
+    }.bind(this)).fail(function(err) {
+      console.log(err)
     });
+    return s;
+    
   }
   View.prototype.addHandleTask = function(obj) {
     this.tasks.push(obj);
@@ -124,51 +148,48 @@ define(function(require, exports, module){
     if (this.isBusy == 0) {
       this.handle();
       this.isBusy = 1;
-      
     }
   }
   //
-  View.prototype._clearOrbs = function(matchedOrbs, callback) {
+  View.prototype._clearOrbs = function(matchedOrbs) {
+    console.log('clearOrbs!:', matchedOrbs)
     var arr = [],
         interval = this.comboInterval,
         _this = this,
         self = arguments.callee,
         remain = [];
 
+
     if (matchedOrbs.length > 0) {
       arr = matchedOrbs[0];
       remain = matchedOrbs.slice(1);
 
-      this._clearOrbsSingle(arr, function(){self.call(_this, remain, callback)});
-    } else {
-      callback.call(this);
+      
+      return this._clearOrbsSingle(arr).then(function(){
+        return this._clearOrbs(remain);
+      }.bind(this));
     }
   }
   // 消除单串珠子
-  View.prototype._clearOrbsSingle = function(arr, callback) {
-    var interval = this.comboInterval,
-        _this = this;
+  View.prototype._clearOrbsSingle = function(arr) {
+    console.log('clearOrbsSingle')
+    var interval = this.comboInterval;
 
     // 消除珠子
-    this.r_clearOrbs(arr);
-    
-    // 显示combo数
-
-
-    // 动画结束后的回调
-    if (this.animation) {
-      setTimeout(function(){
-        callback.call(_this);
-      }, interval);
+    if (typeof arr == 'undefined' || arr.length == 0) {
+      return;
     } else {
-      callback.call(this);
+      return Q.Promise(function(resolve, reject, notify) {
+        this.r_clearOrbs(arr);
+        resolve();
+      }.bind(this)).delay(interval);
     }
+    
   }
 
 
   // 
   View.prototype._moveOrbsTo = function(movedOrbs) {
-
     var x, y,
         cellW = this.cellWidth,
         cellH = this.cellHeight,
@@ -180,38 +201,12 @@ define(function(require, exports, module){
     var pre = this.orbSrcPrefix,
         suf = this.orbSrcSuffix,
         names = this.orbNames;
-    // 如果有天降, 先绘出天降珠子
-    if (skyfallStart.length > 0) {
-      skyfallStart.forEach(function(item, index) {
-        this.skyfallOrbs[item+30].src = pre + names[skyfall[index][1]] + suf;
-      }, this);
-    }
 
-    // 将珠子下落
-    // TODO: 初始化的动画效果如何处理?
-    setTimeout(function(){
-      start.forEach(function(item, index) {
-        var x = end[index] % this.boardSizeX,
-            y = Math.floor((end[index] + 30) / this.boardSizeX);
-        this.orbContainers[item+30].style.webkitTransform = 'translate3d(' + x*cellW + 'px,' + y*cellH + 'px,0)';
-      }, this)
-    }.bind(this), 0);
-    
-    // TODO: 重新初始化天降空珠版面, 并重排珠子的引用
-
-    // TODO: 传递callback
-    setTimeout(function(){
-      this.tasks.shift(0);
-      this.isBusy = 0;
-      this.handle();
-    }.bind(this), this.transition)
-    // for (var i in arr) {
-    //   x = arr[i] % this.boardSizeX;
-    //   y = Math.floor(arr[i] / this.boardSizeX),
-    //   // 改变珠子容器坐标
-    //   this.orbContainers[i].style.webkitTransform = 'translate3d(' + x*cellW + 'px,' + y*cellH + 'px,0)';
-    // }
-
+    return Q.Promise(function(resolve, reject, notify) {
+      this.r_moveOrbs(movedOrbs);
+      //alert('stop')
+      resolve();
+    }.bind(this)).delay(this.transition);
   }
   
   

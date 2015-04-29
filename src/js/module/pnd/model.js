@@ -58,7 +58,7 @@ define(function(require, exports, module) {
         movedOrbs = this.dropOrbs(),
         func = this.toNextState.bind(this),
         n = n || 0;
-    console.log(clearedOrbs, 'clearedOrbs', movedOrbs, 'movedOrbs')
+    console.log('stat = ', this.getSimpleData(), 'clearedOrbs = ', clearedOrbs, ' | movedOrbs = ', movedOrbs)
     //TODO:clearedOrbs 需要区分[]和[[]]
     if ((clearedOrbs.length === 0 || clearedOrbs[0].length ===0) && movedOrbs['start'].length === 0) {
       this.observer.trigger('changeOver');
@@ -82,7 +82,6 @@ define(function(require, exports, module) {
     clearedArr.forEach(function(item) {
       var temp = [];
       item.forEach(function(item2) {
-
         temp.push(this.dataArr[item2]);
         this.dataArr[item2] = [item2, -1, 0];
       }, this);
@@ -125,6 +124,7 @@ define(function(require, exports, module) {
       skyfallArr = this.getRandomOrbsByRates(emptyArr.length);
       // 天降形状的始终位置其实就是空缺形状的上下掉落
       // 天降的起始位置是屏幕外, 每个减去总数目才是真实坐标
+      // TODO: 30
       skyfallStartArr = figureModel.getDropOf(emptyArr).map(function(i){return i - 30});
       skyfallEndArr = figureModel.getReverseDropOf(emptyArr);
     }
@@ -132,23 +132,26 @@ define(function(require, exports, module) {
     // 获得最终变动了的珠子始终位置
     movedStartArr = originStartArr.concat(skyfallStartArr);
     movedEndArr = originEndArr.concat(skyfallEndArr);
-    movedOrbs.start = 
     movedOrbs = {
       start: movedStartArr,
       end: movedEndArr,
       skyfall: skyfallArr,
-      skyfallStart: skyfallStartArr
+      skyfallStart: skyfallStartArr,
+      empty: emptyArr
     };
 
     // 更新本地数据
     
     originEndArr.forEach(function(item, index) {
-      newDataArr[item] = newDataArr[originStartArr[index]];
-    })
+      newDataArr[item] = this.dataArr[originStartArr[index]];
+    }, this)
     skyfallEndArr.forEach(function(item, index) {
       newDataArr[item] = skyfallArr[index];
     })
-    this.dataArr = newDataArr.concat();
+
+    this.dataArr = newDataArr.map(function(item, index){
+      return [index, item[1], item[2]]
+    })
 
     // 通知事件发生
     this.observer.trigger('orbsDrop', movedOrbs);

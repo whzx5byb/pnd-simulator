@@ -25,7 +25,7 @@
  * limitations under the License.
  *
  */
-
+define(function(require, exports, module){
 (function (definition) {
     "use strict";
 
@@ -2027,4 +2027,7 @@ var qEndingLine = captureLine();
 
 return Q;
 
+});
+
+  
 });
