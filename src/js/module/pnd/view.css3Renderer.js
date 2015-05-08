@@ -1,12 +1,12 @@
 'use strict';
 define(function(require, exports, module) {
-  var combos = 0;
+  
   var functions = {
     /**
      * 初始化画布, 添加功能性的div层
      * @return {[type]} [description]
      */
-    initCanvas: function() {
+    _initCanvas: function() {
       var canvas = document.getElementById(this.canvasId),
           boardW = this.boardWidth, 
           boardH = this.boardHeight,
@@ -37,7 +37,7 @@ define(function(require, exports, module) {
      * 初始化珠盘方格, 预载入珠子图像
      * @return {[type]} [description]
      */
-    initOrbContainer: function() {
+    _initOrbContainer: function() {
       var temp = document.createDocumentFragment(),
           sizeX = this.boardSizeX,
           sizeY = this.boardSizeY,
@@ -79,19 +79,21 @@ define(function(require, exports, module) {
       this.boardDiv.appendChild(temp);
     },
     /**
-     * 消除珠子
-     * @param  {[type]} arr [description]
-     * @return {Promise Object}     [description]
+     * 绘制珠子的消除过程
+     * @param  {number[][]} 要消除的珠子
+     * @return {Promise Object} [description]
      */
-    clearOrbs: function(clearedOrbs) {
-      combos += 1;
+    _renderClearing: function(clearedOrbs) {
+      // TODO: 用webkitTransitEnds事件, 实现消除后再跳combo, 消除后再将src变为透明
+      /*combos += 1;
       var c = combos>12?12:combos;
       setTimeout(function(){
         document.getElementById('se'+c).play();
-      },50);
+      },50);*/
       console.log('clear!:', clearedOrbs.map(function(i){return i[0]}))
       clearedOrbs.forEach(function(item) {
         //this.orbs[item].style.opacity = 0;
+        //TODO: 实现不同浏览器的私有属性
         this.orbContainers[item[0]+30].childNodes[0].style.webkitOpacity = 0;
         
 
@@ -99,23 +101,24 @@ define(function(require, exports, module) {
         
       }, this);
     },
-    moveOrbs: function(movedOrbs) {
+    /**
+     * 绘制珠子的掉落过程
+     * @param  {[type]} movedOrbs [description]
+     * @return {[type]}           [description]
+     */
+    _renderFalling: function(empty, start, end, skyfall, skyfallStart) {
       var x, y,
-        cellW = this.cellWidth,
-        cellH = this.cellHeight,
-        sizeX = this.boardSizeX,
-        sizeY = this.boardSizeY,
-        start = movedOrbs.start || [],
-        end = movedOrbs.end || [],
-        skyfall = movedOrbs.skyfall || [],
-        skyfallStart = movedOrbs.skyfallStart || [];
-
-      var pre = this.orbSrcPrefix,
+          cellW = this.cellWidth,
+          cellH = this.cellHeight,
+          sizeX = this.boardSizeX,
+          sizeY = this.boardSizeY,
+          pre = this.orbSrcPrefix,
           suf = this.orbSrcSuffix,
           names = this.orbNames;
 
       // 如果有天降, 先绘出天降珠子
       if (skyfallStart.length > 0) {
+        console.log(skyfallStart)
         skyfallStart.forEach(function(item, index) {
           this.orbContainers[item+30].childNodes[0].style.webkitOpacity = 1;
           this.orbContainers[item+30].childNodes[0].src = pre + names[skyfall[index][1]] + suf;
@@ -124,7 +127,7 @@ define(function(require, exports, module) {
       
       //console.log('before:', this.orbContainers, '[0]=', this.orbContainers[0])
 
-      var emptyOrbs = movedOrbs.empty;
+      
       // 保存对原来所有珠子的引用
       var oldContainers = this.orbContainers.concat();
       // 处理下落部分
@@ -133,25 +136,23 @@ define(function(require, exports, module) {
       }, this);
       // 处理天降珠子部分
       skyfallStart.forEach(function(item, index) {
-        this.orbContainers[item+30] = oldContainers[emptyOrbs[index]+30];
+        this.orbContainers[item+30] = oldContainers[empty[index]+30];
       }, this);
       
 
-      // 交换下落前后的珠子的引用
-      // start.forEach(function(item, index) {
-      //   var temp = this.orbContainers[item+30];
-      //   this.orbContainers[item+30] = this.orbContainers[end[index]+30];
-      //   this.orbContainers[end[index]+30] = temp;
-      // }, this);
-
-      //console.log('after:',this.orbContainers, '[0]=', this.orbContainers[0])
+      // TODO: 
+      // 1. 只修改有变动的珠子的DOM
+      // 2. 对空珠, 临时修改transition为0, 减少不必要的动画
       this.orbContainers.forEach(function(item, index) {
 
         var xx = index % sizeX,
             yy = Math.floor(index / sizeX);
-        item.style.webkitTransform = 'translate3d(' + xx*cellW + 'px,' + yy*cellH + 'px,0)';
-      }, this)
-      
+        item.style.webkitTransform = 'translate(' + xx*cellW + 'px,' + yy*cellH + 'px)';
+      }, this);
+    },
+
+    _getOrbAt: function(x, y) {
+      return this.orbContainers[y * this.boardSizeX + x]
     }
   }
 
@@ -160,13 +161,33 @@ define(function(require, exports, module) {
   module.exports = {
     initRenderer: function(obj) {
       [
-        'initCanvas', 
-        'initOrbContainer',
-        'clearOrbs',
-        'moveOrbs'
+        '_initCanvas', 
+        '_initOrbContainer',
+        '_renderClearing',
+        '_renderFalling',
+        '_getOrbAt'
       ].forEach(function(item){
-        obj['r_' + item] = functions[item];
+        obj[item] = functions[item];
       })
     }
   }
 });
+
+/*
+PND处理顺序:
+放开手指
+依次消除版面上所有珠子
+  消除时加珠依然闪动
+  动画效果--该串珠子渐隐
+    如果有觉醒效果, 则添加觉醒特效(U或者横排)
+  动画效果开始的同时, 创建闪动的combo文本
+  动画效果开始的同时, 光点移动到人物头像, 添加数字
+该版面全部消除后, 开始天降效果
+
+
+直到没有任何珠子可以消除了
+  增加半透明遮罩
+    遮罩效果下加珠不再闪烁
+  开始结算
+  同时将combo文本依次消去
+ */

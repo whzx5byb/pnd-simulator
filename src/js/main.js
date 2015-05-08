@@ -4,7 +4,7 @@ define(function(require, exports, module){
   var s = pnd.init();
   setTimeout(function(){
     s.begin();
-  }, 2000)
+  }, 500)
   
   //document.getElementById('btn1').addEventListener('click', function(){
 

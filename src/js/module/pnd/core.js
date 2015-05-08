@@ -3,19 +3,24 @@ define(function(require, exports, module) {
   var View = require('pnd.view'),
       Model = require('pnd.model'),
       Presenter = require('pnd.presenter'),
-      option = require('pnd.option')
+      option = require('pnd.option'),
+      observer = require('pnd.observer')
 
 
   module.exports = {
     init: function(opt) {
-      var opt = opt || option,
-          view = new View(opt),
-        model = new Model(opt),
-        presenter;
-      opt.view = view;
-      opt.model = model;
+      opt = opt || option;
+      var view = new View(opt),
+          model = new Model(opt),
+          presenter = new Presenter(opt);
+      presenter.view = view;
+      presenter.model = model;
+      presenter.observer = observer;
 
-      presenter = new Presenter(opt);
+      presenter.init();
+      model.init();
+
+      
       return presenter;
     },
     initTester: function(opt) {

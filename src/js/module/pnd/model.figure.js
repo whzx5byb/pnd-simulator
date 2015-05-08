@@ -18,39 +18,7 @@ define(function(require, exports, module) {
     a = sx * sy;
     gravity = opt.gravity || gravity;
   }
-  /**
-   * 获得一个形状挡住光线, 照射不到地方的形状
-   *   消除珠子后留下的空位形状的"向上"光照阴影即为需要移动的形状
-   * @param   {number[]} figure 传入的形状数组
-   * @param   {number[]} arr  光照矢量方向, 默认为和重力方向相同
-   * @return  {number[]} ret    [description]
-   */
-
-  // function getShadeOf(figure, arr) {
-  //   figure = figure || [];
-  //   light = arr || gravity;
-  //   var x = 0,
-  //     y = 0,
-  //     lx = arr[0],
-  //     ly = arr[1],
-  //     sxh = (sx + 1) / 2,
-  //     syh = (sy + 1) / 2,
-  //     ret = [];
-  //   figure.forEach(function(item) {
-  //     x = item % sx;
-  //     y = Math.floor(item / sx);
-  //     // 判断一点是否在界内的公式: lx * (x + 1) < sxh * (lx + 1)
-  //     while (lx * (x + 1) < sxh * (lx + 1) && ly * (y + 1) < syh * (ly + 1)) {
-  //       // 若该点在界内, 则将它下面的点
-  //       x = x + lx;
-  //       y = y + ly;
-  //       if (!isNaN(movedOrbs[y * sx + x])) {
-  //         movedOrbs[y * sx + x] += gx + gy * sx;
-  //       }
-  //     }
-  //   })
-  // }
-
+  
   /**
    * 获得一个形状的掉落形状
    *   消除珠子后留下的空位形状的"向下"掉落形状即为生成天降珠子的初始形状
@@ -59,7 +27,7 @@ define(function(require, exports, module) {
    * @return {number[]} ret     [description]
    */
 
-  function getDropOf(figure, arr) {
+  function getFallingOf(figure, arr) {
     var arr = arr || gravity,
         x = 0,
         y = 0,
@@ -86,9 +54,13 @@ define(function(require, exports, module) {
       return (gx + gy * sx) * distance + item;
     })
   }
-
-  function getReverseDropOf(figure) {
-    return getDropOf(figure, [gravity[0] * -1, gravity[1] * -1]);
+  /**
+   * 获得一个形状的反掉落形状, 即重力反向时的掉落
+   * @param  {[type]} figure [description]
+   * @return {[type]} ret    [description]
+   */
+  function getRisingOf(figure) {
+    return getFallingOf(figure, [gravity[0] * -1, gravity[1] * -1]);
   }
 
   /**
@@ -122,13 +94,34 @@ define(function(require, exports, module) {
     }
     return arr;
   }
+  
+  /**
+   * 给定一个形状, 获得当前面板下该形状为空时的掉落情况
+   * @param {num[]} 以数组形式给定的一个形状
+   * @return {num[][]}
+   */
+  function getFallingProgress(emptyFigure) {
+    var e = emptyFigure || [];
 
+    var start1 = getComplementOf(e),
+        end1 = getFallingOf(start1),
+        temp = removeRepeated([start1, end1]);
+
+    start1 = temp[0];
+    end1 = temp[1];
+
+    var start2 = getFallingOf(e),
+        end2 = getRisingOf(e);
+
+    return [start1, end1, start2, end2];
+  }
 
   module.exports = {
     getComplementOf: getComplementOf,
-    getDropOf: getDropOf,
-    getReverseDropOf: getReverseDropOf,
+    getFallingOf: getFallingOf,
+    getRisingOf: getRisingOf,
     removeRepeated: removeRepeated,
+    getFallingProgress: getFallingProgress
 
   }
 });

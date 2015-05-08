@@ -1,4 +1,5 @@
 define(function(require, exports, module) {
+  'use strict';
   var Model = function(opt) {
     this.sizeX = opt.boardSizeX;
     this.sizeY = opt.boardSizeY;
@@ -13,19 +14,17 @@ define(function(require, exports, module) {
     this.skyfallRates = [];
     this.observer = require('pnd.observer');
 
-    this.init(opt);
+    
   }
 
   /**
    * 初始化珠盘数据模型
-   * 珠子用[index, type, isPlus]的数组来表示
+   * 珠子用[index, type, isPlus]的数组来表示, 如[0,1,1]表示在0位置的木加珠
    * @return {void}
    */
-  Model.prototype.init = function(opt) {
-    this._initSkyfallArr();
+  Model.prototype.init = function() {
+    this.initSkyfallRates();
     this.empty();
-
-
   }
   /**
    * 设置技能天降权重
@@ -35,7 +34,7 @@ define(function(require, exports, module) {
     for (var i in arr) {
       this.skyfallWeights[i] = arr[i];
     }
-    this._initSkyfallArr;
+    this.initSkyfallRates;
   }
 
   /**
@@ -43,43 +42,143 @@ define(function(require, exports, module) {
    * @return {void}
    */
   Model.prototype.empty = function() {
-    var amount = this.amount;
-    for (var i = 0; i < amount; i++) {
-      this.dataArr[i] = [i, -1, 0];
+    var arr = [];
+    for (var i = 0; i < this.amount; i++) {
+      arr.push(i);
     }
+
+    this.updateData({
+      method: 'clear',
+      indexes: arr
+    });
   }
   /**
    * 从当前状态进入到下一个状态
-   * 状态的改变包括两个过程: 按规则消除珠子, 将剩余的珠子(和天降珠子)下落
+   * 状态的改变包括两个过程: 按规则消除珠子, 将剩余的珠子下落
+   * 过程中如果有天降设定, 则还需要生成天降珠子, 以及处理它们的下落过程
    * @return {[type]} [description]
    */
   Model.prototype.toNextState = function(n) {
-    var clearedOrbs = this.clearOrbs(),
-        movedOrbs = this.dropOrbs(),
-        func = this.toNextState.bind(this),
+    var matchModel = require('pnd.model.match'),
+        figureModel = require('pnd.model.figure'),
+        self = this.toNextState.bind(this),
         n = n || 0;
-    console.log('stat = ', this.getSimpleData(), 'clearedOrbs = ', clearedOrbs, ' | movedOrbs = ', movedOrbs)
-    //TODO:clearedOrbs 需要区分[]和[[]]
-    if ((clearedOrbs.length === 0 || clearedOrbs[0].length ===0) && movedOrbs['start'].length === 0) {
-      this.observer.trigger('changeOver');
+    
+
+    // 处理消除阶段
+    var data = this.getSimpleData(),
+        matchedData = matchModel.match(data),
+        clearedOrbs = this.getFullData(matchedData);
+
+    this.updateData({
+      method: 'clear', 
+      indexes: matchedData.reduce(function(previous, current) {
+        return previous.concat(current);
+      }, [])
+    });
+
+    // 处理掉落阶段
+    var emptyArr = this.getSimpleData().reduce(function(previous, current, index){
+      if (current == -1) {
+        previous.push(index);
+      };
+      return previous;
+    }, []);
+    
+    var fallingArr = figureModel.getFallingProgress(emptyArr);
+    
+    this.updateData({
+      method: 'move', 
+      startIndexes: fallingArr[0],
+      endIndexes: fallingArr[1]
+    });
+
+    // 处理天降阶段
+    var skyfallOrbs = [];
+    if (this.hasSkyfall) {
+      skyfallOrbs = this.getRandomOrbsByRates(emptyArr.length);
+      this.updateData({
+        method: 'set',
+        indexes: fallingArr[3],
+        data: skyfallOrbs
+      });
+    }
+
+    
+
+    // 触发事件
+    var stat = {
+      clearedOrbs: clearedOrbs,
+      empty: emptyArr,
+      startIndexes: fallingArr[0],
+      endIndexes: fallingArr[1],
+      skyfallStartIndexes: fallingArr[2].map(function(item) {return item - this.amount}, this),
+      skyfallEndIndexes: fallingArr[3],
+      skyfallOrbs: skyfallOrbs
+    }
+
+    if (emptyArr.length == 0) {
+      this.observer.trigger('board.changeFinish');
     } else {
       n += 1;
-      this.observer.trigger('statChange', clearedOrbs, movedOrbs);
+      this.observer.trigger('board.statChange', stat);
 
-      setTimeout(function(){func(n)}, 0);
+      if (n < 100) {
+        setTimeout(function(){self(n)}, 0);
+      }
     }
-    
-    
+  }
+  /**
+   * 更新数据
+   * @param  {[type]} method [description]
+   * @param  {[type]} arr    [description]
+   * @return {[type]}        [description]
+   */
+  Model.prototype.updateData = function(obj) {
+    // 操作数据时, 注意保持序号的对应性, 元素的第一个成员应该和它本身的索引相同
+    switch (obj.method) {
+
+      case 'clear': 
+        obj.indexes.forEach(function(item) {
+          this.dataArr[item] = [item, -1, 0];
+        }, this);
+        break;
+
+      case 'move':
+
+        var startIndexes = obj.startIndexes,
+            endIndexes = obj.endIndexes,
+            tempArr = this.dataArr.concat();
+
+        startIndexes.forEach(function(item) {
+          this.dataArr[item] = [item, -1, 0];
+        }, this);
+        endIndexes.forEach(function(item, index) {
+          tempArr[startIndexes[index]].splice(0,1,item);
+          this.dataArr[item] = tempArr[startIndexes[index]];
+        }, this);
+        break;
+
+      case 'exchange':
+        break;
+
+      case 'set':
+        var data = obj.data;
+        obj.indexes.forEach(function(item, index) {
+          this.dataArr[item] = [item, data[index][1], data[index][2]];
+        }, this)
+        break;
+    }
+    this.observer.trigger('board.dataUpdate', obj);
   }
 
-  Model.prototype.clearOrbs = function() {
-    var matchModel = require('pnd.matchModel'),
+  Model.prototype._handleMatching = function() {
+    var matchModel = require('pnd.model.match'),
         data = this.getSimpleData(),
-        clearedArr = matchModel.match(data),
         clearedOrbs = [];
     
     // 更新本地数据
-    clearedArr.forEach(function(item) {
+    matchModel.match(data).forEach(function(item) {
       var temp = [];
       item.forEach(function(item2) {
         temp.push(this.dataArr[item2]);
@@ -93,7 +192,7 @@ define(function(require, exports, module) {
     return clearedOrbs;
   }
   Model.prototype.dropOrbs = function() {
-    var figureModel = require('pnd.figureModel'),
+    var figureModel = require('pnd.model.figure'),
         data = this.getSimpleData(),
         emptyArr = [],
         movedOrbs = {
@@ -188,10 +287,22 @@ define(function(require, exports, module) {
 
   }
   // 获得简单的当前版面数据(不含加珠)
-  Model.prototype.getSimpleData = function() {
-    return this.dataArr.map(function(item){
+  Model.prototype.getSimpleData = function(arr) {
+    arr = arr || this.dataArr;
+    return arr.map(function(item){
       return item[1];
     })
+  }
+  // 获得完整的当前版面数据(含加珠)
+  Model.prototype.getFullData = function(arr) {
+    arr = arr || [];
+    return arr.map(function(item){
+      if (typeof item == 'object') {
+        return this.getFullData(item);
+      } else {
+        return this.dataArr[item];
+      }
+    }, this)
   }
   // 获得当前盘面珠子数量
   Model.prototype.getOrbsNum = function() {
@@ -288,14 +399,7 @@ define(function(require, exports, module) {
   }
 
 
-  /**
-   * 获得天降几率分布数组
-   * @return {[type]} [description]
-   */
-  Model.prototype._initSkyfallArr = function() {
-    this.skyfallRates = this.getSkyfallRates(this.skyfallBases, this.skyfallWeights);
-
-  }
+  
 
   /**
    * 获取当前盘面空珠的位置
@@ -314,6 +418,13 @@ define(function(require, exports, module) {
   }
 
   /**
+   * 初始化天降几率分布数组
+   * @return {[type]} [description]
+   */
+  Model.prototype.initSkyfallRates = function() {
+    this.skyfallRates = this._getSkyfallRates(this.skyfallBases, this.skyfallWeights);
+  }
+  /**
    * 根据天降权重生成珠子天降几率分布数组
    * TODO: 天降权重的官方算法需要确认
    *
@@ -321,7 +432,7 @@ define(function(require, exports, module) {
    * @param  {number[]} sfWeights  技能权重数组, 索引为珠子类型, 值为该珠的技能权重; 如[10, 0, 0, 0, 0, 0, 0, 10] 代表火赫拉火废10%;
    * @return {number[]} ret        天降分布数组, 索引为珠子类型, 值为该珠出现的几率; 如[0.2917, 0.2917, 0.5, 0.7083, 0.7083, 0.9166, 0.9166, 1];
    */
-  Model.prototype.getSkyfallRates = function(sfBases, sfWeights) {
+  Model.prototype._getSkyfallRates = function(sfBases, sfWeights) {
     // 最终概率 = (基础概率 + 额外技能概率) / (1 + 额外技能概率之和/100)
     // 基础概率 = 1 / 出现的珠子类别数量 * 该珠出现与否
     var len = sfBases.length,

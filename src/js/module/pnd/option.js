@@ -10,7 +10,7 @@ define(function(require, exports, module) {
     boardSizeY:     5, // 纵向珠子个数
     typeNum:        8, // 最大珠子类型数(火水木光暗心毒废)
     gravity:        [0, 1], // 天降时的重力方向, 即珠子掉落方向
-    skyfallBases:   [1, 1, 0, 0, 0, 1, 0, 0], // 天降珠子的基础权重, 1 表示有天降, 0 表示无天降
+    skyfallBases:   [1, 0, 0, 0, 0, 1, 0, 0], // 天降珠子的基础权重, 1 表示有天降, 0 表示无天降
     skyfallWeights: [0, 0, 0, 0, 0, 0, 0, 0], // 使用技能时天降珠子的加成权重
     canvasId:       'pndCanvas', // 画布元素id    
     orbSrcPrefix:   'img/', // 珠子图片路径前缀
@@ -26,7 +26,7 @@ define(function(require, exports, module) {
     orbHeight:      58, // 珠子物体高度
     // UI动画效果选项
     animation:     1, // 动画效果开关
-    comboInterval: 500, // combo计算间隔(ms)
+    comboInterval: 600, // combo计算间隔(ms)
     transition:    250,
     // UI声音效果选项
     se: 1,
