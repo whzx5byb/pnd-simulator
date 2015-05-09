@@ -19,6 +19,22 @@
   img {
     border: 0;
   }
+  .top {
+    z-index: 1000;
+  }
+  #smallCanvas {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 120px;
+    height: 100px;
+  }
+  #smallCanvas .unit {
+    float: left;
+    border: solid #fff 1px;
+    width: 18px;
+    height: 18px;
+  }
   </style>
   <audio id="se1" src="audio/se1.ogg" preload='preload'></audio>
   <audio id="se2" src="audio/se2.ogg" preload='preload'></audio>
@@ -33,10 +49,13 @@
   <audio id="se11" src="audio/se11.ogg" preload='preload'></audio>
   <audio id="se12" src="audio/se12.ogg" preload='preload'></audio>
 
-  <div id="pndCanvas">
+  <div id="pndCanvas" touch-action="none">
 
   </div>
-  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<button id="btn1">init</button>
+  <div id="smallCanvas">
+    
+  </div>
+
   <script src="js/sea.js"></script>
   <script>
   seajs.config({
@@ -50,6 +69,7 @@
       'pep': 'lib/pep.js',
       'pnd.core': 'pnd/core.js',
       'pnd.view': 'pnd/view.js',
+      'pnd.view.event': 'pnd/view.event.js',
       'pnd.view.css3Renderer': 'pnd/view.css3Renderer.js',
       'pnd.presenter': 'pnd/presenter.js',
       'pnd.model': 'pnd/model.js',

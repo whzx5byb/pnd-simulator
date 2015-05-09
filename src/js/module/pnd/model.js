@@ -160,6 +160,13 @@ define(function(require, exports, module) {
         break;
 
       case 'exchange':
+
+        var index1 = obj.index1,
+            index2 = obj.index2,
+            temp = this.dataArr[index1].concat();
+            
+        this.dataArr[index1] = [index1, this.dataArr[index2][1], this.dataArr[index2][2]];
+        this.dataArr[index2] = [index2, temp[1], temp[2]]
         break;
 
       case 'set':
@@ -169,7 +176,7 @@ define(function(require, exports, module) {
         }, this)
         break;
     }
-    this.observer.trigger('board.dataUpdate', obj);
+    this.observer.trigger('board.dataUpdate', this.dataArr);
   }
 
   Model.prototype._handleMatching = function() {
