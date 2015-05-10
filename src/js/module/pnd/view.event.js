@@ -1,18 +1,42 @@
 define(function(require, exports, module){
-  var movingFlag, originSx, originSy, sizeX, sizeY, amount, cellW, cellH;
+  'use strict';
+  
+  var movingFlag, originSx, originSy, sizeX, sizeY, amount, cellW, cellH, pointerX, pointerY, orbW, orbH;
+  var initRAF = function() {
+    var lastTime = 0;
+    var vendors = ['ms', 'moz', 'webkit', 'o'];
+    for(var x = 0; x < vendors.length && !window.requestAnimationFrame; ++x) {
+        window.requestAnimationFrame = window[vendors[x]+'RequestAnimationFrame'];
+        window.cancelAnimationFrame = window[vendors[x]+'CancelAnimationFrame'] 
+                                   || window[vendors[x]+'CancelRequestAnimationFrame'];
+    }
+    if (!window.requestAnimationFrame) {
+      window.requestAnimationFrame = function(callback, element) {
+        var currTime = new Date().getTime();
+        var timeToCall = Math.max(0, 16 - (currTime - lastTime));
+        var id = window.setTimeout(function() { callback(currTime + timeToCall); }, 
+          timeToCall);
+        lastTime = currTime + timeToCall;
+        return id;
+      };
+    }
+        
+ 
+    if (!window.cancelAnimationFrame) {
+      window.cancelAnimationFrame = function(id) {
+        clearTimeout(id);
+      };
+    }
+  }
   var onPointerDown = function(ev) {
     // TODO: 需要考虑canvas元素的clientX,Y位移
-    var x = ev.clientX,
-        y = ev.clientY,
-        sx = Math.floor(x / this.cellWidth),
-        sy = Math.floor(y / this.cellHeight),
+    var sx = Math.floor(ev.clientX / this.cellWidth),
+        sy = Math.floor(ev.clientY / this.cellHeight),
         orb = this._getOrbContainerAt(sx,sy);
+
+    pointerX = ev.clientX;
+    pointerY = ev.clientY;
     
-    sizeX = this.boardSizeX;
-    sizeY = this.boardSizeY;
-    amount = this.amount;
-    cellW = this.cellWidth;
-    cellH = this.cellHeight;
     // 如果该位置是有效珠, 则开始选择珠子过程
     
     ev.preventDefault();
@@ -20,18 +44,30 @@ define(function(require, exports, module){
       movingFlag = 1;
       originSx = sx;
       originSy = sy;
-      this._renderSelectingOrb(orb, x - this.orbWidth/2 , y - this.orbHeight/2);
+      this._renderSelectingOrb(orb, pointerX - orbW/1.5 , pointerY - orbH/1.5);
+      _handlePointerMove.call(this);
     }
   };
   var onPointerMove = function(ev) {
-    var x = ev.clientX,
-        y = ev.clientY,
-        sx = Math.floor(x / cellW),
-        sy = Math.floor(y / cellH);
+    pointerX = ev.clientX;
+    pointerY = ev.clientY;
+  }
+  var onPointerUp = function(ev) {
+    // TODO: 处理指针异常离开时不触发pointerup的问题
+    if (movingFlag) {
+      movingFlag = 0;
+      
+      this._cancelSelectingOrb(this.originOrb);
+      this.observer.trigger('view.moveEnd');
+    }
+  }
+  var _handlePointerMove = function() {
+    var sx = Math.floor(pointerX / cellW),
+        sy = Math.floor(pointerY / cellH);
 
     if (movingFlag) {
-      this._renderMovingGhostOrb(x - this.orbWidth/2, y - this.orbHeight/2);
-
+      this._renderMovingGhostOrb(pointerX - orbW/1.5, pointerY - orbH/1.5);
+      
       // 判断鼠标是否在初始选中珠范围之外, 并且在盘面之内
       if ((sx != originSx || sy != originSy) && sx < sizeX && sx >= 0 && sy < sizeY*2 && sy >= sizeY) {
         this._renderExchangingOrb(originSx + originSy * sizeX, sx + sy * sizeX);
@@ -39,23 +75,7 @@ define(function(require, exports, module){
         originSx = sx;
         originSy = sy;
       }
-
-      /*if (sx != this.originSx || sy != this.originSy) {
-
-        this._renderExchangingOrb(sx, sy);
-        this.originSx = sx;
-        this.originSy = sy;
-        ;
-        
-      }*/
-    }
-  }
-  var onPointerUp = function(ev) {
-    if (movingFlag) {
-      movingFlag = 0;
-      
-      this._cancelSelectingOrb(this.originOrb);
-      this.observer.trigger('view.moveEnd');
+      window.requestAnimationFrame(_handlePointerMove.bind(this));
     }
   }
   var methods = {
@@ -76,6 +96,15 @@ define(function(require, exports, module){
 
   module.exports = {
     init: function(obj) {
+      orbW = obj.orbWidth;
+      orbH = obj.orbHeight;
+      sizeX = obj.boardSizeX;
+      sizeY = obj.boardSizeY;
+      amount = obj.amount;
+      cellW = obj.cellWidth;
+      cellH = obj.cellHeight;
+      initRAF();
+
       for (var i in methods) {
         if (methods.hasOwnProperty(i)) {
           obj[i] = methods[i];

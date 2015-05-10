@@ -1,4 +1,4 @@
-/*
+/**
  * 用CSS3对界面进行渲染
  * 
  * 珠子盘面的模型如下:
@@ -17,26 +17,110 @@
  */
 define(function(require, exports, module) {
   'use strict';
-  var originOrb, ghostOrb, orbContainers = [],
-      setVendor = function(element, prop, value) {
-        var capProp;
-        if (typeof prop == 'object') {
-          for (var i in prop) {
-            setVendor(element, i, prop[i]);
-          }
-          return;
-        }
-        if ( prop in element.style ) {
-          element.style[prop] = value;
-        } else {
-          capProp = prop.charAt(0).toUpperCase() + prop.slice(1);
-          element.style["Webkit" + capProp] = value;
-          element.style["Moz" + capProp] = value;
-          element.style["ms" + capProp] = value;
-          element.style["O" + capProp] = value;
-        }
+  var gOriginOrb,gGhostOrb, gPre, gSuf, gNames, sizeX, cellW, cellH,
+      Q = require('q'),
+      orbContainers = [];
+  function uniqueArray(arr) {
+    return arr.sort().reduce(function(previous, current, index, array){
+      if (current != arr[index+1]) {
+        previous.push(current);
       }
+      return previous;
+    },[])
+  }
+  function setVendor(element, prop, value) {
+    var capProp;
+    if (typeof prop == 'object') {
+      for (var i in prop) {
+        setVendor(element, i, prop[i]);
+      }
+      return;
+    }
+    if ( prop in element.style ) {
+      element.style[prop] = value;
+    } else {
+      capProp = prop.charAt(0).toUpperCase() + prop.slice(1);
+      element.style["Webkit" + capProp] = value;
+      element.style["Moz" + capProp] = value;
+      element.style["ms" + capProp] = value;
+      element.style["O" + capProp] = value;
+    }
+  };
+  /**
+   * 绘制指定索引处的珠子产生的移动
+   * 移动目标位置为该索引指定的目标
+   * @param  {[type]} indexes [description]
+   * @return {[type]}         [description]
+   */
+  function renderOrbMoving(indexes, option) {
+    var len = indexes.length,
+    option = option || {};
 
+    // TODO: 将空珠移除transition后再移动, 减少动画
+    return Q.Promise(function(resolve, reject, notify){
+      var onTransitionEnd = function() {
+        len -= 1;
+        console.log(len)
+        this.removeEventListener('webkitTransitionEnd', onTransitionEnd, false);
+        if (len == 0) {resolve();}
+      }
+      indexes.forEach(function(item) {
+        var sx = item % sizeX, 
+            sy = Math.floor(item / sizeX);
+        option['transform'] = 'translate3d(' + sx * cellW + 'px,' + sy * cellH + 'px,0)';
+
+        orbContainers[item].addEventListener('webkitTransitionEnd', onTransitionEnd, false);
+        setVendor(orbContainers[item], option);
+      });
+    });
+    
+  };
+  /**
+   * 绘制珠子消失的过程
+   * @param  {[type]} indexes [description]
+   * @return {[type]}         [description]
+   */
+  function renderOrbDisappearing(indexes) {
+    var len = indexes.length;
+    
+
+    return Q.Promise(function(resolve, reject, notify){
+      var onTransitionEnd = function() {
+        len -= 1;
+        this.removeEventListener('webkitTransitionEnd', onTransitionEnd, false);
+        if (len == 0) {resolve();}
+      }
+      indexes.forEach(function(item) {
+        orbContainers[item]['childNodes'][0].addEventListener('webkitTransitionEnd', onTransitionEnd, false);
+        setVendor(orbContainers[item]['childNodes'][0], {'opacity': 0});
+      });
+    });
+
+  }
+  /**
+   * 绘制珠子出现时的过程
+   * @param  {[type]} indexes [description]
+   * @param  {[type]} orbs    [description]
+   * @return {[type]}         [description]
+   */
+  function renderOrbAppearing(indexes, skyfall) {
+    indexes.forEach(function(item, index) {
+      var obj = orbContainers[item]['childNodes'][0];
+      setVendor(obj, {'opacity': 1});
+      // TODO: 处理加珠生成.
+      obj.src = gPre + gNames[skyfall[index][1]] + gSuf;
+    })
+  }
+  /**
+   * 绘制连击提示文字
+   * @return {[type]} [description]
+   */
+  function renderComboString(indexes) {
+
+    // 获取文字应该显示的位置
+    
+
+  }
   var methods = {
     /**
      * 初始化画布, 添加功能性的div层
@@ -46,8 +130,11 @@ define(function(require, exports, module) {
       var canvas = document.getElementById(this.canvasId),
           boardW = this.boardWidth, 
           boardH = this.boardHeight,
-          bgSrc = this.bgSrc,
-          html = '' +
+          bgSrc = this.bgSrc;
+
+
+
+      var html = '' +
             '<div id="pndSceneDiv" style="">' +
             '  <div id=""></div>' +
             '  <div id="pndTeambarDiv"></div>' +
@@ -61,13 +148,12 @@ define(function(require, exports, module) {
         return eval(s1);
       });
 
+
       this.canvasDiv = canvas;
       this.canvasDiv.innerHTML = html;
       this.teambarDiv = document.getElementById('pndTeambarDiv');
       this.lifebarDiv = document.getElementById('pndLifebarDiv');
       this.boardDiv = document.getElementById('pndBoardDiv');
-
-      
     },
     /**
      * 初始化珠盘方格, 预载入珠子图像
@@ -87,11 +173,13 @@ define(function(require, exports, module) {
         for (var j = 0; j < sizeX; j++) {
           // 创建单个的珠子容器
           var orbContainer = document.createElement('div');
-          orbContainer.draggable = false;
-          orbContainer.style.cssText = 'position: absolute; -webkit-transition: linear ' + this.transition / 1000 + 's;' +
-            'width:' + cellW + 'px;' +
-            'height:' + cellH + 'px;' +
-            '-webkit-transform: translate3d(' + j * cellW + 'px, ' + i * cellH + 'px, 0)';
+          setVendor(orbContainer, {
+            'position': 'absolute',
+            'width': cellW + 'px',
+            'height': cellH + 'px',
+            'transitionDuration': this.transition/1000 + 's',
+            'transform': 'translate3d(' + j * cellW + 'px, ' + i * cellH + 'px, 0)'
+          })
           orbContainers.push(orbContainer);
 
           // 创建单个珠子
@@ -119,20 +207,11 @@ define(function(require, exports, module) {
      * @param  {number[][]} 要消除的珠子
      * @return {Promise Object} [description]
      */
-    _renderClearing: function(clearedOrbs) {
+    _renderClearing: function(indexes) {
       // TODO: 用webkitTransitEnds事件, 实现消除后再跳combo, 消除后再将src变为透明
-      /*combos += 1;
-      var c = combos>12?12:combos;
-      setTimeout(function(){
-        document.getElementById('se'+c).play();
-      },50);*/
-      //console.log('clear!:', clearedOrbs.map(function(i){return i[0]}))
-      clearedOrbs.forEach(function(item) {
-        //this.orbs[item].style.opacity = 0;
-        //TODO: 实现不同浏览器的私有属性
-        orbContainers[item[0]+30].childNodes[0].style.webkitOpacity = 0;
-        //orbContainers[item[0]+30].childNodes[0].src = this.transparentImg;
-      }, this);
+      return renderOrbDisappearing(indexes).then(function(){
+        return renderComboString(indexes)
+      });
     },
     /**
      * 绘制珠子的掉落过程
@@ -151,7 +230,7 @@ define(function(require, exports, module) {
 
       // 如果有天降, 先绘出天降珠子
       if (skyfallStart.length > 0) {
-        this._renderOrbAppearing(skyfallStart, skyfall);
+        renderOrbAppearing(skyfallStart, skyfall);
       }
       
       
@@ -171,13 +250,8 @@ define(function(require, exports, module) {
       // 1. 只修改有变动的珠子的DOM
       // 2. 对空珠, 临时修改transition为0, 减少不必要的动画
       
-      this._renderOrbMoving(start.concat(end, skyfallStart, empty), {'transition': 'transform linear 0.25s'});
-      /*orbContainers.forEach(function(item, index) {
-
-        var xx = index % sizeX,
-            yy = Math.floor(index / sizeX);
-        item.style.webkitTransform = 'translate(' + xx*cellW + 'px,' + yy*cellH + 'px)';
-      }, this);*/
+      return renderOrbMoving(uniqueArray(start.concat(end)), {'transition': 'transform linear 0.25s'});
+      
     },
 
     _getOrbContainerAt: function(sx, sy) {
@@ -198,25 +272,26 @@ define(function(require, exports, module) {
      */
     _renderSelectingOrb: function(obj, x, y) {
       // 将选中的珠子透明化处理
-      originOrb = obj;
+      gOriginOrb = obj;
       setVendor(obj, {'transition': '0s', 'opacity': 0.4});
-      console.log('select orb')
+
       // 创建跟随指针移动的提示珠
+      // TODO: 将提示珠缓存起来, 而不是每次用完就删掉
       var newOrb = obj.cloneNode(true);
-      newOrb.id = 'ghostOrb';
-      newOrb.childNodes[0].width = this.orbWidth*1.1;
-      newOrb.childNodes[0].height = this.orbWidth*1.1;
+      newOrb.id = 'gGhostOrb';
+      newOrb.childNodes[0].width = this.orbWidth*1.2;
+      newOrb.childNodes[0].height = this.orbWidth*1.2;
       setVendor(newOrb, {
         'opacity': 0.8,
-        'width': this.orbWidth*1.1 + 'px',
-        'height': this.orbHeight*1.1 + 'px',
+        'width': this.orbWidth*1.2 + 'px',
+        'height': this.orbHeight*1.2 + 'px',
         'left': '0px', 
         'top': '0px', 
         'transform': 'translate3d(' + x + 'px,' + y + 'px,0)'
       });
 
-      ghostOrb = newOrb;
-      this.canvasDiv.appendChild(ghostOrb);
+      gGhostOrb = newOrb;
+      this.canvasDiv.appendChild(gGhostOrb);
     },
 
     /**
@@ -226,7 +301,7 @@ define(function(require, exports, module) {
      * @return {[type]}   [description]
      */
     _renderMovingGhostOrb: function(x, y) {
-      setVendor(ghostOrb, {'transform': 'translate3d(' + x + 'px,' + y + 'px,0)'});
+      setVendor(gGhostOrb, {'transform': 'translate3d(' + x + 'px,' + y + 'px,0)'});
     },
     /**
      * 绘制交换两颗珠子的过程
@@ -241,7 +316,7 @@ define(function(require, exports, module) {
       orbContainers[index2] = temp;
 
       // 绘制发生变动的珠子
-      this._renderOrbMoving([index1, index2], {'transition': 'transform linear 0.1s'});
+      renderOrbMoving([index1, index2], {'transitionDuration': '0.05s'});
     },
     /**
      * 绘制指针离开, 取消选中珠子的过程
@@ -250,56 +325,12 @@ define(function(require, exports, module) {
      */
     _cancelSelectingOrb: function() {
       console.log('select end')
-      ghostOrb.parentNode.removeChild(ghostOrb);
+      gGhostOrb.parentNode.removeChild(gGhostOrb);
       
-      setVendor(originOrb, {'transition': 'transform linear 0.25s', 'opacity': 1});
+      setVendor(gOriginOrb, {'transitionDuration': '0.25s', 'opacity': 1});
     },
 
-    /**
-     * 绘制指定索引处的珠子产生的变化(移动)
-     * @param  {[type]} indexes [description]
-     * @return {[type]}         [description]
-     */
-    _renderOrbMoving: function(indexes, option) {
-      var sizeX = this.boardSizeX, 
-          cellW = this.cellWidth,
-          cellH = this.cellHeight,
-          option = option || {};
-
-      indexes.forEach(function(item) {
-        var sx = item % sizeX, 
-            sy = Math.floor(item / sizeX);
-        option['transform'] = 'translate3d(' + sx * cellW + 'px,' + sy * cellH + 'px,0)';
-        setVendor(orbContainers[item], option);
-      }, this);
-
-      // 测试用
-      for (var i = 0; i < 60; i ++) {
-        orbContainers[i].id = 'orb'+i;
-      }
-    },
-    _renderOrbDisappearing: function(indexes) {
-      indexes.forEach(function(item) {
-        setVendor(orbContainers[item]['childNodes'][0], {'opacity': 0});
-      }, this);
-    },
-    /**
-     * 绘制珠子出现时的过程
-     * @param  {[type]} indexes [description]
-     * @param  {[type]} orbs    [description]
-     * @return {[type]}         [description]
-     */
-    _renderOrbAppearing: function(indexes, skyfall) {
-      var pre = this.orbSrcPrefix,
-          suf = this.orbSrcSuffix,
-          names = this.orbNames;
-      indexes.forEach(function(item, index) {
-        var obj = orbContainers[item]['childNodes'][0];
-        setVendor(obj, {'opacity': 1});
-        // TODO: 处理加珠生成.
-        obj.src = pre + names[skyfall[index][1]] + suf;
-      })
-    }
+    
 
 
   }
@@ -308,6 +339,13 @@ define(function(require, exports, module) {
   
   module.exports = {
     init: function(obj) {
+      gPre = obj.orbSrcPrefix;
+      gSuf = obj.orbSrcSuffix;
+      gNames = obj.orbNames;
+      sizeX = obj.boardSizeX; 
+      cellW = obj.cellWidth;
+      cellH = obj.cellHeight;
+
       for (var i in methods) {
         if (methods.hasOwnProperty(i)) {
           obj[i] = methods[i];
@@ -334,4 +372,4 @@ PND处理顺序:
     遮罩效果下加珠不再闪烁
   开始结算
   同时将combo文本依次消去
-*/
+  */

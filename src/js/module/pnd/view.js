@@ -84,6 +84,7 @@ define(function(require, exports, module){
     }.bind(this)).then(function() {
       return this._moveOrbsTo(task);
     }.bind(this)).then(function() {
+      
       this.tasks.shift(0);
       if (this.tasks.length == 0) {
         this.isBusy = 0;
@@ -134,10 +135,8 @@ define(function(require, exports, module){
     if (typeof arr == 'undefined' || arr.length == 0) {
       return;
     } else {
-      return Q.Promise(function(resolve, reject, notify) {
-        this._renderClearing(arr);
-        resolve();
-      }.bind(this)).delay(interval);
+      arr = arr.map(function(i){return i[0]+30});
+      return this._renderClearing(arr);
     }
     
   }
@@ -155,11 +154,7 @@ define(function(require, exports, module){
         empty = stat.empty.map(function(i){return i + amount});
 
 
-    return Q.Promise(function(resolve, reject, notify) {
-      this._renderFalling(empty, start, end, skyfall, skyfallStart);
-      //alert('stop')
-      resolve();
-    }.bind(this)).delay(this.transition);
+    return this._renderFalling(empty, start, end, skyfall, skyfallStart);
   }
   
   
